@@ -1,0 +1,5 @@
+{
+  "name": "補卡超人上線了",
+  "description": "卡遊庫存管理與下單系統",
+  "requestFramePermissions": ["camera"]
+}
