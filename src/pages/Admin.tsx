@@ -111,7 +111,10 @@ export default function Admin() {
         console.log("Uploading image:", imageFile.name, "Size:", imageFile.size);
         // Use a generic name if the mobile browser doesn't provide a good one
         const fileName = imageFile.name || `photo_${Date.now()}.jpg`;
-        const sanitizedName = fileName.replace(/[^a-zA-Z0-9.]/g, "_");
+        let sanitizedName = fileName.replace(/[^a-zA-Z0-9.]/g, "_");
+        if (!sanitizedName || sanitizedName === "_") {
+          sanitizedName = `upload_${Date.now()}.jpg`;
+        }
         const fileRef = ref(storage, `cards/${Date.now()}_${sanitizedName}`);
         const uploadResult = await uploadBytes(fileRef, imageFile);
         console.log("Upload successful:", uploadResult.metadata.fullPath);
@@ -152,7 +155,12 @@ export default function Admin() {
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (error: any) {
-      console.error("Add Card Error:", error);
+      console.error("Add Card Error Detailed:", error);
+      // If error is a DOMException, it might have more properties
+      if (error instanceof Error) {
+        console.error("Error Name:", error.name);
+        console.error("Error Message:", error.message);
+      }
       setAdminError(error.message || "新增失敗，請檢查 Firebase 設定或網路連線");
     } finally {
       setIsAdding(false);
@@ -322,9 +330,12 @@ export default function Admin() {
                   <select
                     value={series}
                     onChange={(e) => {
-                      const s = parseInt(e.target.value, 10);
-                      setSeries(s);
-                      setRarity(s === 1 ? SERIES_1_TABS[0] : SERIES_2_TABS[0]);
+                      const val = e.target.value;
+                      const s = parseInt(val, 10);
+                      if (!isNaN(s)) {
+                        setSeries(s);
+                        setRarity(s === 1 ? SERIES_1_TABS[0] : SERIES_2_TABS[0]);
+                      }
                     }}
                     className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-teal-500"
                   >
@@ -382,11 +393,14 @@ export default function Admin() {
                   />
                   <div className="text-center text-xs text-zinc-500 my-1">或</div>
                   <input
-                    type="url"
+                    type="text"
                     value={imageUrl ?? ""}
                     onChange={(e) => {
                       setImageUrl(e.target.value);
-                      setImageFile(null);
+                      if (e.target.value) {
+                        setImageFile(null);
+                        if (fileInputRef.current) fileInputRef.current.value = "";
+                      }
                     }}
                     className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-teal-500"
                     placeholder="輸入圖片網址 https://..."
@@ -401,8 +415,11 @@ export default function Admin() {
                     required
                     type="number"
                     min="0"
-                    value={stock ?? 0}
-                    onChange={(e) => setStock(parseInt(e.target.value, 10))}
+                    value={stock}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setStock(isNaN(val) ? 0 : val);
+                    }}
                     className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-teal-500"
                   />
                 </div>
@@ -480,12 +497,10 @@ export default function Admin() {
                           type="number"
                           min="0"
                           value={card.stock ?? 0}
-                          onChange={(e) =>
-                            handleUpdateStock(
-                              card.id,
-                              parseInt(e.target.value, 10),
-                            )
-                          }
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            handleUpdateStock(card.id, isNaN(val) ? 0 : val);
+                          }}
                           className="w-16 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-teal-500"
                         />
                       </div>
