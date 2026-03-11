@@ -38,6 +38,7 @@ export default function Admin() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [adminError, setAdminError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -96,18 +97,27 @@ export default function Admin() {
     }
 
     setIsAdding(true);
+    setSuccessMessage(null);
     try {
       let finalImageUrl = imageUrl;
 
       if (imageFile) {
+        // Limit to 10MB
+        if (imageFile.size > 10 * 1024 * 1024) {
+          throw new Error("圖片檔案太大了（上限 10MB）");
+        }
+        
         setUploadingImage(true);
-        const fileRef = ref(storage, `cards/${Date.now()}_${imageFile.name}`);
-        await uploadBytes(fileRef, imageFile);
+        console.log("Uploading image:", imageFile.name, "Size:", imageFile.size);
+        const fileRef = ref(storage, `cards/${Date.now()}_${imageFile.name.replace(/[^a-zA-Z0-9.]/g, "_")}`);
+        const uploadResult = await uploadBytes(fileRef, imageFile);
+        console.log("Upload successful:", uploadResult.metadata.fullPath);
         finalImageUrl = await getDownloadURL(fileRef);
+        console.log("Download URL:", finalImageUrl);
         setUploadingImage(false);
       }
 
-      await fetch("/api/cards", {
+      const response = await fetch("/api/cards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -118,6 +128,13 @@ export default function Admin() {
           stock,
         }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "伺服器儲存失敗");
+      }
+
+      setSuccessMessage("卡片已成功新增至庫存！");
       setName("");
       setImageUrl("");
       setImageFile(null);
@@ -125,9 +142,14 @@ export default function Admin() {
         fileInputRef.current.value = "";
       }
       setStock(1);
-      fetchCards();
+      
+      // Refresh the list
+      await fetchCards();
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (error: any) {
-      console.error(error);
+      console.error("Add Card Error:", error);
       setAdminError(error.message || "新增失敗，請檢查 Firebase 設定或網路連線");
     } finally {
       setIsAdding(false);
@@ -278,6 +300,12 @@ export default function Admin() {
                 <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm flex justify-between items-center">
                   <span>{adminError}</span>
                   <button onClick={() => setAdminError(null)} className="text-xs hover:underline">關閉</button>
+                </div>
+              )}
+              {successMessage && (
+                <div className="mb-4 p-4 bg-teal-500/10 border border-teal-500/20 text-teal-400 rounded-xl text-sm flex justify-between items-center">
+                  <span>{successMessage}</span>
+                  <button onClick={() => setSuccessMessage(null)} className="text-xs hover:underline">關閉</button>
                 </div>
               )}
               <form
