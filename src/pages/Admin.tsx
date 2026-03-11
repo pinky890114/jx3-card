@@ -102,14 +102,17 @@ export default function Admin() {
       let finalImageUrl = imageUrl;
 
       if (imageFile) {
-        // Limit to 10MB
-        if (imageFile.size > 10 * 1024 * 1024) {
-          throw new Error("圖片檔案太大了（上限 10MB）");
+        // Limit to 20MB to accommodate high-res mobile photos
+        if (imageFile.size > 20 * 1024 * 1024) {
+          throw new Error("圖片檔案太大了（上限 20MB）");
         }
         
         setUploadingImage(true);
         console.log("Uploading image:", imageFile.name, "Size:", imageFile.size);
-        const fileRef = ref(storage, `cards/${Date.now()}_${imageFile.name.replace(/[^a-zA-Z0-9.]/g, "_")}`);
+        // Use a generic name if the mobile browser doesn't provide a good one
+        const fileName = imageFile.name || `photo_${Date.now()}.jpg`;
+        const sanitizedName = fileName.replace(/[^a-zA-Z0-9.]/g, "_");
+        const fileRef = ref(storage, `cards/${Date.now()}_${sanitizedName}`);
         const uploadResult = await uploadBytes(fileRef, imageFile);
         console.log("Upload successful:", uploadResult.metadata.fullPath);
         finalImageUrl = await getDownloadURL(fileRef);
@@ -363,12 +366,11 @@ export default function Admin() {
 
                 <div className="space-y-1.5 lg:col-span-2">
                   <label className="text-xs font-medium text-zinc-400">
-                    圖片 (拍照或上傳)
+                    圖片 (可直接拍照或從相簿選擇)
                   </label>
                   <input
                     type="file"
                     accept="image/*"
-                    capture="environment"
                     ref={fileInputRef}
                     onChange={(e) => {
                       if (e.target.files && e.target.files[0]) {
